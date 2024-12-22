@@ -32,11 +32,15 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info.RelayMode == constant.RelayModeRealtime {
-		// trim https
-		baseUrl := strings.TrimPrefix(info.BaseUrl, "https://")
-		baseUrl = strings.TrimPrefix(baseUrl, "http://")
-		baseUrl = "wss://" + baseUrl
-		info.BaseUrl = baseUrl
+		if strings.HasPrefix(info.BaseUrl, "https://") {
+			baseUrl := strings.TrimPrefix(info.BaseUrl, "https://")
+			baseUrl = "wss://" + baseUrl
+			info.BaseUrl = baseUrl
+		} else if strings.HasPrefix(info.BaseUrl, "http://") {
+			baseUrl := strings.TrimPrefix(info.BaseUrl, "http://")
+			baseUrl = "ws://" + baseUrl
+			info.BaseUrl = baseUrl
+		}
 	}
 	switch info.ChannelType {
 	case common.ChannelTypeAzure:
@@ -105,12 +109,19 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 	if info.ChannelType != common.ChannelTypeOpenAI {
 		request.StreamOptions = nil
 	}
-	if strings.HasPrefix(request.Model, "o1-") {
+	if strings.HasPrefix(request.Model, "o1") {
 		if request.MaxCompletionTokens == 0 && request.MaxTokens != 0 {
 			request.MaxCompletionTokens = request.MaxTokens
 			request.MaxTokens = 0
 		}
 	}
+	if request.Model == "o1" || request.Model == "o1-2024-12-17" {
+		//修改第一个Message的内容，将system改为developer
+		if len(request.Messages) > 0 && request.Messages[0].Role == "system" {
+			request.Messages[0].Role = "developer"
+		}
+	}
+
 	return request, nil
 }
 
